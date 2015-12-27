@@ -1,0 +1,100 @@
+---
+output: html_document
+---
+#Prediction Assignment Writeup
+
+##Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+##Project Aim
+The aim of your project is to predict the way in which the exercise was done. The "classe" variable will be used from the training dataset. The project will describe how the model was built, how cross validation was done, what the expected out of sample error is, and why choices we made. The prediction model will be used to predict 20 different test cases. 
+
+
+##Load Packages
+```{r}
+library(caret)
+library(kernlab)
+library(randomForest)
+library(rpart)
+library(gbm)
+```
+
+##Read the datas
+
+```{r}
+training_data<- read.csv("pml-training.csv", na.strings=c("NA",""))
+test_data<-read.csv("pml-testing.csv", na.strings=c("NA",""))
+names(training_data)
+dim(training_data)
+dim(test_data)
+```
+
+As seen, the number of rows for the training dataset is 19622 and there are 160 columns. The testing dataset has 20 rows and 160 columns.
+
+##Tidy the dataset
+
+We will proceed on to tidy the dataset as it is too huge. There seems to many columns with alot of NAs. We will also remove some unwanted columns.
+
+```{r}
+training_data <- training_data[, colSums(is.na(training_data)) == 0] 
+test_data<-test_data[, colSums(is.na(test_data)) == 0]
+training_data <-training_data[,-c(1:7)]
+test_data <-test_data[,-c(1:7)]
+dim(training_data)
+dim(test_data)
+```
+
+Now, the number of rows for the training dataset is 19622 and there are 56 columns. The testing dataset has 20 rows and 56 columns.This is easier to work with.
+
+##Split the dataset for Cross Validdation
+
+```{r}
+set.seed(12222)
+inTrain <-createDataPartition(training_data$classe,p=0.75,list=F)
+training<-training_data[inTrain,]
+testing<-training_data[-inTrain,]
+dim(training)
+```
+
+##Fitting of model
+We will first use the random forest method to fit the model
+```{r}
+Modelfit1 <- randomForest(classe ~. , data=training, method="class")
+prediction1<-predict(Modelfit1,testing,type="class")
+confusionMatrix(prediction1,testing$classe)
+```
+
+Next we will use Decision Trees
+
+```{r}
+Modelfit2<- rpart(classe ~ ., data=training, method="class")
+prediction2<-predict(Modelfit2,testing,type="class")
+confusionMatrix(prediction2,testing$classe)
+```
+
+Next we will use Boosting
+(I had problems running the code for this)
+
+From the results we can see that the Random forest gives more accurate results than Decision trees. As seen from results, the accuracy for the Random Forest is 0.9957 but the accuracy for Decision Trees is 0.7416. Hence we will choose the Random Forest. The expected out of sample error is 0.0043.
+
+Lastly, we will predict based on the original Testing dataset. The method we will use is the Random Forest algorithm.
+
+```{r{}}
+predictionsub<-predict(Modelfit1,test_data,type="class")
+predictionsub
+```
+
+#Submission
+We will now use this code to produce the 20 files for submission
+
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(predictionsub)
+```
